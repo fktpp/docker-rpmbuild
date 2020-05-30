@@ -21,7 +21,7 @@
 # - https://registry.hub.docker.com/u/sydneyuni/rpm-build-env/
 
 FROM centos:7
-MAINTAINER jitakirin <jitakirin@gmail.com>
+MAINTAINER FKtPp <kai.fktpp@gmail.com>
 
 RUN yum install -y rpmdevtools yum-utils && \
     yum clean all && \
