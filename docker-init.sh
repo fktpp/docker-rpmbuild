@@ -15,8 +15,11 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with docker-rpmbuild.  If not, see <http://www.gnu.org/licenses/>.
+if [[ ! -z ${VERBOSE} ]]; then
+  set -x
+fi
 
-set -e "${VERBOSE:+-x}"
+set -e
 
 BUILD=true
 if [[ $1 == --sh ]]; then
@@ -26,11 +29,23 @@ fi
 
 SPEC="$1"
 OUTDIR="${2:-$PWD}"
-if [[ -z ${SPEC} || ! -e ${SPEC} ]]; then
+if [[ -z ${SPEC} ]]; then
   echo "Usage: docker run [--rm]" \
     "--volume=/path/to/source:/src --workdir=/src" \
     "rpmbuild [--sh] SPECFILE [OUTDIR=.]" >&2
   exit 2
+fi
+
+if [[ ! -e ${SPEC} ]]; then
+  cat <<EOF >&2
+SPECFILE ${SPEC} not found!!!
+
+Please make sure
+1. SPECFILE resides in SOURCE directory
+2. SOURCE directory mapped correctly
+3. append :z to --volume=/path/to/source:/src if you have SELINUX activated
+EOF
+  exit 3
 fi
 
 # pre-builddep hook for adding extra repos
