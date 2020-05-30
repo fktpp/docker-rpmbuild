@@ -1,5 +1,6 @@
 #!/bin/bash
 # Copyright 2015-2016 jitakirin
+# Copyright 2020 fktpp
 #
 # This file is part of docker-rpmbuild.
 #
@@ -27,52 +28,39 @@ if [[ $1 == --sh ]]; then
   shift
 fi
 
-SPEC="$1"
-OUTDIR="${2:-$PWD}"
+SPEC=$1
 if [[ -z ${SPEC} ]]; then
   echo "Usage: docker run [--rm]" \
-    "--volume=/path/to/source:/src --workdir=/src" \
-    "rpmbuild [--sh] SPECFILE [OUTDIR=.]" >&2
+    "--volume=/path/to/source:/root/rpmbuild" \
+    "rpmbuild [--sh] SPECFILE" >&2
   exit 2
 fi
 
-if [[ ! -e ${SPEC} ]]; then
+if [[ ! -e /root/rpmbuild/SPECS/${SPEC} ]]; then
   cat <<EOF >&2
 SPECFILE ${SPEC} not found!!!
 
 Please make sure
 1. SPECFILE resides in SOURCE directory
 2. SOURCE directory mapped correctly
-3. append :z to --volume=/path/to/source:/src if you have SELINUX activated
+3. append :z to --volume=/path/to/source:/root/rpmbuild if you have SELINUX activated
 EOF
   exit 3
 fi
 
 # pre-builddep hook for adding extra repos
 if [[ -n ${PRE_BUILDDEP} ]]; then
-  bash "${VERBOSE:+-x}" -c "${PRE_BUILDDEP}"
+  bash ${VERBOSE:+-x} -c ${PRE_BUILDDEP}
 fi
 
 # install build dependencies declared in the specfile
-yum-builddep -y "${SPEC}"
+if [[ -n ${BUILDDEP} ]]; then
+  yum-builddep -y /root/rpmbuild/SPECS/${SPEC}
+fi
 
 # drop to the shell for debugging manually
 if ! ${BUILD}; then
-  exec "${SHELL:-/bin/bash}" -l
+  exec ${SHELL:-/bin/bash} -l
 fi
 
-# execute the build as rpmbuild user
-runuser rpmbuild /usr/local/bin/docker-rpm-build.sh "$@"
-
-# copy the results back; done as root as rpmbuild most likely doesn't
-# have permissions for OUTDIR; ensure ownership of output is consistent
-# with source so that the caller of this image doesn't run into
-# permission issues
-mkdir -p "${OUTDIR}"
-cp "${VERBOSE:+-v}" -a --reflink=auto \
-  ~rpmbuild/rpmbuild/{RPMS,SRPMS} "${OUTDIR}/"
-TO_CHOWN=( "${OUTDIR}/"{RPMS,SRPMS} )
-if [[ ${OUTDIR} != ${PWD} ]]; then
-  TO_CHOWN=( "${OUTDIR}" )
-fi
-chown "${VERBOSE:+-v}" -R --reference="${PWD}" "${TO_CHOWN[@]}"
+rpmbuild ${VERBOSE:+-v} -bb --clean /root/rpmbuild/SPECS/${SPEC}

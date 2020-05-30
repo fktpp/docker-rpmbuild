@@ -24,14 +24,8 @@ FROM centos:7
 MAINTAINER FKtPp <kai.fktpp@gmail.com>
 
 RUN yum install -y rpmdevtools yum-utils && \
-    yum clean all && \
-    rm -r -f /var/cache/*
-ADD docker-init.sh docker-rpm-build.sh /usr/local/bin/
+    rpmdev-setuptree
+COPY docker-init.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-*.sh
-
-RUN useradd rpmbuild
-USER rpmbuild
-RUN rpmdev-setuptree
-USER root
 
 ENTRYPOINT ["/usr/local/bin/docker-init.sh"]
